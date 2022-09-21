@@ -50,12 +50,15 @@ async def main():
 
     # find last acceptedTx's block hash, when restarting this tool
     with session_maker() as s:
-        start_hash = s.query(Transaction) \
-            .where(Transaction.is_accepted == True) \
-            .order_by(Transaction.block_time) \
-            .limit(1) \
-            .first() \
-            .block_hash
+        try:
+            start_hash = s.query(Transaction) \
+                .where(Transaction.is_accepted == True) \
+                .order_by(Transaction.block_time.desc()) \
+                .limit(1) \
+                .first() \
+                .block_hash
+        except AttributeError:
+            start_hash = None
 
     # if there is nothing in the db, just get latest block.
     if not start_hash:
