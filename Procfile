@@ -1,1 +1,1 @@
-bot: python src/MAIN.py
+bot: python main.py
