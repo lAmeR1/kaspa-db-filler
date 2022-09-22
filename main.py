@@ -39,14 +39,9 @@ if not kaspad_hosts:
 client = KaspadMultiClient(kaspad_hosts)
 
 
-
 async def main():
     # initialize kaspads
     await client.initialize_all()
-
-    # create instances of blocksprocessor and virtualchainprocessor
-    bp = BlocksProcessor(client)
-    vcp = VirtualChainProcessor(client)
 
     # find last acceptedTx's block hash, when restarting this tool
     with session_maker() as s:
@@ -66,6 +61,10 @@ async def main():
         start_hash = daginfo["getBlockDagInfoResponse"]["tipHashes"][0]
 
     _logger.info(f"Start hash: {start_hash}")
+
+    # create instances of blocksprocessor and virtualchainprocessor
+    bp = BlocksProcessor(client, start_hash)
+    vcp = VirtualChainProcessor(client, start_hash)
 
     async def handle_blocks_commited(e):
         """
@@ -88,9 +87,8 @@ async def main():
     # set up event to fire after adding new blocks
     bp.on_commited += handle_blocks_commited
 
-    # blocks- and virtualchainprocessor working concurrent
-    await asyncio.gather(bp.loop(start_hash),
-                         vcp.loop(start_hash))
+    # start blocks processor adding blocks into database
+    await bp.loop()
 
 
 if __name__ == '__main__':
