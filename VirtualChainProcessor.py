@@ -3,6 +3,7 @@ import asyncio
 import logging
 
 from dbsession import session_maker
+from models.Block import Block
 from models.Transaction import Transaction
 
 _logger = logging.getLogger(__name__)
@@ -54,18 +55,26 @@ class VirtualChainProcessor(object):
             return
 
         parent_chain_response = self.virtual_chain_response
-        first_chain_block = parent_chain_response['acceptedTransactionIds'][0]['acceptingBlockHash']
-        if not self.__is_in_db_mock(first_chain_block):
-            return  # First block not in DB yet, keep the current response until more blocks are ready
+        # first_chain_block = parent_chain_response['acceptedTransactionIds'][0]['acceptingBlockHash']
+
+        parent_chain_blocks = [x['acceptingBlockHash'] for x in parent_chain_response['acceptedTransactionIds']]
+
+        # find intersection of database blocks and virtual parent chain
+        with session_maker() as s:
+            parent_chain_blocks_in_db = s.query(Block) \
+                .filter(Block.hash.in_(parent_chain_blocks)) \
+                .with_entity(Block.hash).all()
 
         accepted_ids = []
         rejected_blocks = []
 
-        last_known_chain_block = first_chain_block
+        # last_known_chain_block = first_chain_block
         for tx_accept_dict in parent_chain_response['acceptedTransactionIds']:
             accepting_block_hash = tx_accept_dict['acceptingBlockHash']
-            if not self.__is_in_db_mock(accepting_block_hash):
+
+            if accepting_block_hash not in parent_chain_blocks_in_db:
                 break  # Stop once we reached a none existing block
+
             last_known_chain_block = accepting_block_hash
             accepted_ids.extend(tx_accept_dict["acceptedTransactionIds"])
 
@@ -100,22 +109,9 @@ class VirtualChainProcessor(object):
         # Clear the current response
         self.virtual_chain_response = None
 
-    # async def prepare(self):
-    #     """
-    #     Stores the virtual chain list into a temporary storage. This is a preparation for adding.
-    #     """
-    #     self.__prepared_list = self.virtual_chain_list
-    #     self.virtual_chain_list = []
-    #
-    # def is_prepared(self):
-    #     return len(self.__prepared_list) > 0
 
     async def yield_to_database(self):
         """
-        Adds prepared temporary storage to database
+        Add known blocks to database
         """
-        # for vchain_entry in self.__prepared_list:
         await self.__update_transactions()
-
-        # reset temp storage
-        # self.__prepared_list = []
