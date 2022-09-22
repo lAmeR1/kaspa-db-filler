@@ -19,26 +19,11 @@ class VirtualChainProcessor(object):
     basically a temporary storage. This buffer should be processed AFTER the blocks and transactions are added.
     """
 
-    def __init__(self, client):
+    def __init__(self, client, start_hash):
         self.virtual_chain_list = []
         self.__prepared_list = []
         self.client = client
-
-    async def loop(self, start_point):
-        while True:
-            _logger.debug('Polling now.')
-            resp = await self.client.request("getVirtualSelectedParentChainFromBlockRequest",
-                                             {"startHash": start_point,
-                                              "includeAcceptedTransactionIds": True},
-                                             timeout=120)
-
-            # if there is a response, add to queue and set new startpoint
-            if resp["getVirtualSelectedParentChainFromBlockResponse"]:
-                self.virtual_chain_list.append(resp["getVirtualSelectedParentChainFromBlockResponse"])
-                start_point = self.virtual_chain_list[-1]["addedChainBlockHashes"][-1]
-
-            # wait before polling
-            await asyncio.sleep(POLLING_TIME_IN_S)
+        self.start_hash = start_hash
 
     async def __update_transactions(self, parent_chain_response):
         """
@@ -80,8 +65,21 @@ class VirtualChainProcessor(object):
         """
         Stores the virtual chain list into a temporary storage. This is a preparation for adding.
         """
+        resp = await self.client.request("getVirtualSelectedParentChainFromBlockRequest",
+                                         {"startHash": self.start_hash,
+                                          "includeAcceptedTransactionIds": True},
+                                         timeout=120)
+
+        # if there is a response, add to queue and set new startpoint
+        if resp["getVirtualSelectedParentChainFromBlockResponse"]:
+            self.virtual_chain_list.append(resp["getVirtualSelectedParentChainFromBlockResponse"])
+
+        # set new start_hash
+        self.start_hash = self.virtual_chain_list[-1]["addedChainBlockHashes"][-1]
+
         self.__prepared_list = self.virtual_chain_list
         self.virtual_chain_list = []
+
 
     def is_prepared(self):
         return len(self.__prepared_list) > 0

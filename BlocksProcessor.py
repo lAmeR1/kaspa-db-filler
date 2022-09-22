@@ -23,11 +23,17 @@ class BlocksProcessor(object):
     BlocksProcessor polls kaspad for blocks and adds the meta information and it's transactions into database.
     """
 
-    def __init__(self, client):
+    def __init__(self, client, start_hash):
         self.client = client
-        self.blocks_to_add = []
+
         self.on_commited = Event()
 
+        self.start_hash = start_hash
+
+        # storage for blocks
+        self.blocks_to_add = []
+
+        # storage for txs
         self.txs = []
         self.txs_output = []
         self.txs_input = []
@@ -35,9 +41,9 @@ class BlocksProcessor(object):
         # Did the loop already see the DAG tip
         self.synced = False
 
-    async def loop(self, start_point):
+    async def loop(self):
         # go through each block added to DAG
-        async for block_hash, block in self.blockiter(start_point):
+        async for block_hash, block in self.blockiter(self.start_hash):
             # prepare add block and tx to database
             await self.__add_block_to_queue(block_hash, block)
             await self.__add_tx_to_queue(block_hash, block)
