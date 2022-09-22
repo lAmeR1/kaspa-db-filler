@@ -1,5 +1,5 @@
 # encoding: utf-8
-import asyncio
+
 import logging
 
 from dbsession import session_maker
@@ -7,8 +7,6 @@ from models.Block import Block
 from models.Transaction import Transaction
 
 _logger = logging.getLogger(__name__)
-
-POLLING_TIME_IN_S = 3
 
 
 class VirtualChainProcessor(object):
@@ -20,55 +18,33 @@ class VirtualChainProcessor(object):
     basically a temporary storage. This buffer should be processed AFTER the blocks and transactions are added.
     """
 
-    def __init__(self, client):
+    def __init__(self, client, start_point):
         self.virtual_chain_response = None
-        self.start_point = None
+        self.start_point = start_point
         self.client = client
 
-    async def loop(self, start_point):
-        self.start_point = start_point
-        while True:
-            if self.virtual_chain_response is None:  # Re-query only if previous response was already processed
-                _logger.debug('Polling now.')
-                resp = await self.client.request("getVirtualSelectedParentChainFromBlockRequest",
-                                                 {"startHash": self.start_point,
-                                                  "includeAcceptedTransactionIds": True},
-                                                 timeout=120)
-
-                # if there is a response, add to queue and set new startpoint
-                if resp["getVirtualSelectedParentChainFromBlockResponse"]:
-                    self.virtual_chain_response = resp["getVirtualSelectedParentChainFromBlockResponse"]
-
-            # wait before polling
-            await asyncio.sleep(POLLING_TIME_IN_S)
-
-    def __is_in_db_mock(self, block_hash):
-        # Just a placeholder for DB query logic
-        return True
-
-    async def __update_transactions(self):
+    async def __update_transactions_in_db(self):
         """
         goes through one parentChainResponse and updates the is_accepted field in the database.
         """
+        accepted_ids = []
+        rejected_blocks = []
+        last_known_chain_block = None
 
         if self.virtual_chain_response is None:
             return
 
         parent_chain_response = self.virtual_chain_response
-        # first_chain_block = parent_chain_response['acceptedTransactionIds'][0]['acceptingBlockHash']
-
         parent_chain_blocks = [x['acceptingBlockHash'] for x in parent_chain_response['acceptedTransactionIds']]
 
         # find intersection of database blocks and virtual parent chain
         with session_maker() as s:
             parent_chain_blocks_in_db = s.query(Block) \
                 .filter(Block.hash.in_(parent_chain_blocks)) \
-                .with_entity(Block.hash).all()
+                .with_entities(Block.hash).all()
+            parent_chain_blocks_in_db = [x[0] for x in parent_chain_blocks_in_db]
 
-        accepted_ids = []
-        rejected_blocks = []
-
-        # last_known_chain_block = first_chain_block
+        # go through all acceptedTransactionIds and stop if a block hash is not in database
         for tx_accept_dict in parent_chain_response['acceptedTransactionIds']:
             accepting_block_hash = tx_accept_dict['acceptingBlockHash']
 
@@ -76,7 +52,7 @@ class VirtualChainProcessor(object):
                 break  # Stop once we reached a none existing block
 
             last_known_chain_block = accepting_block_hash
-            accepted_ids.extend(tx_accept_dict["acceptedTransactionIds"])
+            accepted_ids.append((tx_accept_dict['acceptingBlockHash'], tx_accept_dict["acceptedTransactionIds"]))
 
         # add rejected blocks if needed
         rejected_blocks.extend(parent_chain_response.get('removedChainBlockHashes', []))
@@ -85,33 +61,37 @@ class VirtualChainProcessor(object):
             # set is_accepted to False, when blocks were removed from virtual parent chain
             if rejected_blocks:
                 count = s.query(Transaction).filter(Transaction.block_hash.in_(rejected_blocks)) \
-                    .update({'is_accepted': False})
+                    .update({'is_accepted': False, 'accepted_block_hash': None})
                 _logger.debug(f'Set is_accepted=False for {count} TXs')
 
-            # remove double ids
-            accepted_ids = list(set(accepted_ids))
-            count = s.query(Transaction).filter(Transaction.transaction_id.in_(accepted_ids)).update(
-                {'is_accepted': True})
-            _logger.debug(f'Set is_accepted=True for {count} TXs')
+            # set is_accepted to True and add accepted_block_hash
+            for accepted_block_hash, accepted_tx_ids in accepted_ids:
+                for db_tx in s.query(Transaction).filter(Transaction.transaction_id.in_(accepted_tx_ids)).all():
+                    db_tx.is_accepted = True
+                    db_tx.accepted_block_hash = accepted_block_hash
+
             s.commit()
 
-            if count != len(accepted_ids):
-                _logger.error(f'Unable to set is_accepted field for TXs. '
-                              f'Found only {count}/{len(accepted_ids)} TXs in the database')
-
-                _logger.error(set(accepted_ids) - set([x.transaction_id for x in s.query(Transaction).filter(
-                    Transaction.transaction_id.in_(accepted_ids)).all()]))
-
-                raise Exception("IsAccepted update not possible")
-
         # Mark last known/processed as start point for the next query
-        self.start_point = last_known_chain_block
+        if last_known_chain_block:
+            self.start_point = last_known_chain_block
+
         # Clear the current response
         self.virtual_chain_response = None
-
 
     async def yield_to_database(self):
         """
         Add known blocks to database
         """
-        await self.__update_transactions()
+        resp = await self.client.request("getVirtualSelectedParentChainFromBlockRequest",
+                                         {"startHash": self.start_point,
+                                          "includeAcceptedTransactionIds": True},
+                                         timeout=120)
+
+        # if there is a response, add to queue and set new startpoint
+        if resp["getVirtualSelectedParentChainFromBlockResponse"]:
+            self.virtual_chain_response = resp["getVirtualSelectedParentChainFromBlockResponse"]
+        else:
+            self.virtual_chain_response = None
+
+        await self.__update_transactions_in_db()

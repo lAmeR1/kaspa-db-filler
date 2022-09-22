@@ -74,16 +74,8 @@ async def main():
         if not bp.synced:
             return
 
-        # if there are prepared acceptedTransactions, go through and update database
-        # if vcp.is_prepared():
         _logger.debug('Update is_accepted for TXs.')
         await vcp.yield_to_database()
-
-        # first, prepare virtual chain to be added soon.
-        # this mechanism is needed to guarantee, all TXs are added in database,
-        # when going through "acceptedTransactions"
-        # _logger.debug('acceptedTransactions are prepared to be insterted after adding next blocks.')
-        # await vcp.prepare()
 
     # set up event to fire after adding new blocks
     bp.on_commited += handle_blocks_commited
