@@ -8,7 +8,7 @@ from dbsession import create_all, session_maker
 from kaspad.KaspadMultiClient import KaspadMultiClient
 from models.Transaction import Transaction
 
-logging.basicConfig(format="%(asctime)s::%(name)s::%(module)s::%(levelname)s::%(message)s",
+logging.basicConfig(format="%(asctime)s::%(levelname)s::%(name)s::%(message)s",
                     level=logging.DEBUG if os.getenv("DEBUG", False) else logging.INFO,
                     handlers=[
                         logging.StreamHandler()

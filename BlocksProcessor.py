@@ -65,12 +65,14 @@ class BlocksProcessor(object):
             # if it's not synced, get the tiphash, which has to be found for getting synced
             if not self.synced:
                 daginfo = await self.client.request("getBlockDagInfoRequest", {})
-                if daginfo["getBlockDagInfoResponse"]["tipHashes"][0] in resp["getBlocksResponse"]["blockHashes"]:
-                    _logger.info('Found tip hash. Generator is synced now.')
-                    self.synced = True
 
             # go through each block and yield
             for i, _ in enumerate(resp["getBlocksResponse"]["blockHashes"]):
+
+                if not self.synced:
+                    if daginfo["getBlockDagInfoResponse"]["tipHashes"][0] == _:
+                        _logger.info('Found tip hash. Generator is synced now.')
+                        self.synced = True
 
                 # ignore the first block, which is not start point. It is already processed by previous request
                 if _ == low_hash and _ != start_point:

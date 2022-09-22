@@ -71,6 +71,9 @@ class VirtualChainProcessor(object):
                 _logger.error(f'Unable to set is_accepted field for TXs. '
                               f'Found only {count}/{len(accepted_ids)} TXs in the database')
 
+                _logger.error(set(accepted_ids) - set([x.transaction_id for x in s.query(Transaction).filter(
+                    Transaction.transaction_id.in_(accepted_ids)).all()]))
+
                 raise Exception("IsAccepted update not possible")
 
     async def prepare(self):
