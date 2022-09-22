@@ -44,10 +44,6 @@ async def main():
     # initialize kaspads
     await client.initialize_all()
 
-    # create instances of blocksprocessor and virtualchainprocessor
-    bp = BlocksProcessor(client)
-    vcp = VirtualChainProcessor(client)
-
     # find last acceptedTx's block hash, when restarting this tool
     with session_maker() as s:
         try:
@@ -66,6 +62,10 @@ async def main():
         start_hash = daginfo["getBlockDagInfoResponse"]["tipHashes"][0]
 
     _logger.info(f"Start hash: {start_hash}")
+
+    # create instances of blocksprocessor and virtualchainprocessor
+    bp = BlocksProcessor(client)
+    vcp = VirtualChainProcessor(client, start_hash)
 
     async def handle_blocks_commited(e):
         """
@@ -89,8 +89,7 @@ async def main():
     bp.on_commited += handle_blocks_commited
 
     # blocks- and virtualchainprocessor working concurrent
-    await asyncio.gather(bp.loop(start_hash),
-                         vcp.loop(start_hash))
+    await bp.loop(start_hash)
 
 
 if __name__ == '__main__':
