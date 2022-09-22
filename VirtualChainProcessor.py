@@ -74,8 +74,8 @@ class VirtualChainProcessor(object):
         if resp["getVirtualSelectedParentChainFromBlockResponse"]:
             self.virtual_chain_list.append(resp["getVirtualSelectedParentChainFromBlockResponse"])
 
-        # set new start_hash
-        self.start_hash = self.virtual_chain_list[-1]["addedChainBlockHashes"][-1]
+            # set new start_hash
+            self.start_hash = self.virtual_chain_list[-1]["addedChainBlockHashes"][-1]
 
         self.__prepared_list = self.virtual_chain_list
         self.virtual_chain_list = []
