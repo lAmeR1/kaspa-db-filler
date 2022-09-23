@@ -71,6 +71,7 @@ class VirtualChainProcessor(object):
                     db_tx.accepted_block_hash = accepted_block_hash
 
             s.commit()
+            _logger.debug(f'Set is_accepted=True for {len(accepted_ids)} transactions.')
 
         # Mark last known/processed as start point for the next query
         if last_known_chain_block:

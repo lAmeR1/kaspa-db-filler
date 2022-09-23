@@ -71,9 +71,6 @@ async def main():
         """
         this function is executed, when a new cluster of blocks were added to the database
         """
-        if not bp.synced:
-            return
-
         _logger.debug('Update is_accepted for TXs.')
         await vcp.yield_to_database()
 
