@@ -60,7 +60,7 @@ class VirtualChainProcessor(object):
         with session_maker() as s:
             # set is_accepted to False, when blocks were removed from virtual parent chain
             if rejected_blocks:
-                count = s.query(Transaction).filter(Transaction.block_hash.in_(rejected_blocks)) \
+                count = s.query(Transaction).filter(Transaction.accepted_block_hash.in_(rejected_blocks)) \
                     .update({'is_accepted': False, 'accepted_block_hash': None})
                 _logger.debug(f'Set is_accepted=False for {count} TXs')
 
