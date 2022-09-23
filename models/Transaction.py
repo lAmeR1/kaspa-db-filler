@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, BigInteger, Boolean
+from sqlalchemy import Column, String, Integer, BigInteger, Boolean, ARRAY
 
 from dbsession import Base
 
@@ -10,9 +10,10 @@ class Transaction(Base):
                             primary_key=True)  # "bedea078f74f241e7d755a98c9e39fda1dc56491dc7718485a8f221f73f03061",
     hash = Column(String)  # "a5f99f4dc55693124e7c6b75dc3e56b60db381a74716046dbdcae9210ce1052f",
     mass = Column(String)  # "2036",
-    block_hash = Column(String)  # "1b41af8cfe1851243bedf596b7299c039b86b2fef8eb4204b04f954da5d2ab0f",
+    block_hash = Column(ARRAY(String))  # "1b41af8cfe1851243bedf596b7299c039b86b2fef8eb4204b04f954da5d2ab0f",
     block_time = Column(BigInteger)  # "1663286480803"
     is_accepted = Column(Boolean, default=False)
+    accepted_block_hash = Column(String, nullable=True)
 
 
 class TransactionOutput(Base):

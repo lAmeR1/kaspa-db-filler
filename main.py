@@ -52,7 +52,7 @@ async def main():
                 .order_by(Transaction.block_time.desc()) \
                 .limit(1) \
                 .first() \
-                .block_hash
+                .accepted_block_hash
         except AttributeError:
             start_hash = None
 

@@ -28,7 +28,7 @@ class BlocksProcessor(object):
         self.blocks_to_add = []
         self.on_commited = Event()
 
-        self.txs = []
+        self.txs = {}
         self.txs_output = []
         self.txs_input = []
 
@@ -93,18 +93,33 @@ class BlocksProcessor(object):
         """
         Adds block's transactions to queue. This is only prepartion without commit!
         """
+        tx_ids_to_add = [x["verboseData"]["transactionId"] for x in block["transactions"]]
+        with session_maker() as session:
+            tx_items = session.query(Transaction).filter(Transaction.transaction_id.in_(tx_ids_to_add)).all()
+            tx_ids_to_added_in_db = [x.transaction_id for x in tx_items]
+            for tx_item in tx_items:
+                tx_item.block_hash = list(set(tx_item.block_hash + [block_hash]))
+
+            session.commit()
+
         # go through blocks
         for block_tx in block["transactions"]:
+            tx_id = block_tx["verboseData"]["transactionId"]
+
+            if tx_id in tx_ids_to_added_in_db:
+                continue
+
             # check, that the transaction isn't prepared yet. Otherwise ignore
             # often transactions are added in more than one block
             if not self.is_tx_id_in_queue(block_tx["verboseData"]["transactionId"]):
                 # add transaction
-                self.txs.append(Transaction(subnetwork_id=block_tx["subnetworkId"],
+
+                self.txs[tx_id] = Transaction(subnetwork_id=block_tx["subnetworkId"],
                                             transaction_id=block_tx["verboseData"]["transactionId"],
                                             hash=block_tx["verboseData"]["hash"],
                                             mass=block_tx["verboseData"].get("mass"),
-                                            block_hash=block_tx["verboseData"]["blockHash"],
-                                            block_time=int(block_tx["verboseData"]["blockTime"])))
+                                            block_hash=[block_tx["verboseData"]["blockHash"]],
+                                            block_time=int(block_tx["verboseData"]["blockTime"]))
 
                 # add transactions output
                 for index, out in enumerate(block_tx["outputs"]):
@@ -126,31 +141,16 @@ class BlocksProcessor(object):
                                                                "index", 0),
                                                            signatureScript=tx_in["signatureScript"],
                                                            sigOpCount=tx_in["sigOpCount"]))
+            else:
+                self.txs[tx_id].block_hash = list(set(self.txs[tx_id].block_hash + [block_hash]))
 
     async def commit_txs(self):
         """
         Add all prepared TXs and it's in- and outputs to database
         """
         with session_maker() as session:
-            d = session.query(Transaction).filter(
-                Transaction.transaction_id.in_([tx.transaction_id for tx in self.txs])).delete()
-            if d > 0:
-                _logger.debug(f'deleted {d} transactions.')
-
-            d = session.query(TransactionOutput).filter(
-                TransactionOutput.transaction_id.in_([tx.transaction_id for tx in self.txs_output])).delete()
-            if d > 0:
-                _logger.debug(f'deleted {d} transaction outputs.')
-
-            d = session.query(TransactionInput).filter(
-                TransactionInput.transaction_id.in_([tx.transaction_id for tx in self.txs_input])).delete()
-            if d > 0:
-                _logger.debug(f'deleted {d} transaction inputs.')
-
-            session.commit()
-
             # go through queues and add
-            for _ in self.txs:
+            for _ in self.txs.values():
                 session.add(_)
 
             for _ in self.txs_output:
@@ -164,7 +164,7 @@ class BlocksProcessor(object):
                 _logger.debug(f'Added {len(self.txs)} TXs to database')
 
                 # reset queues
-                self.txs = []
+                self.txs = {}
                 self.txs_input = []
                 self.txs_output = []
 
@@ -230,6 +230,4 @@ class BlocksProcessor(object):
         """
         Checks if given TX ID is already in the queue
         """
-        for tx in self.txs:
-            if tx.transaction_id == tx_id:
-                return True
+        return tx_id in self.txs
