@@ -44,6 +44,8 @@ class VirtualChainProcessor(object):
                 .with_entities(Block.hash).all()
             parent_chain_blocks_in_db = [x[0] for x in parent_chain_blocks_in_db]
 
+        # parent_chain_blocks_in_db = parent_chain_blocks_in_db[:200]
+
         # go through all acceptedTransactionIds and stop if a block hash is not in database
         for tx_accept_dict in parent_chain_response['acceptedTransactionIds']:
             accepting_block_hash = tx_accept_dict['acceptingBlockHash']
@@ -54,6 +56,9 @@ class VirtualChainProcessor(object):
             last_known_chain_block = accepting_block_hash
             accepted_ids.append((tx_accept_dict['acceptingBlockHash'], tx_accept_dict["acceptedTransactionIds"]))
 
+            if len(accepted_ids) >= 1000:
+                break
+
         # add rejected blocks if needed
         rejected_blocks.extend(parent_chain_response.get('removedChainBlockHashes', []))
 
@@ -63,15 +68,18 @@ class VirtualChainProcessor(object):
                 count = s.query(Transaction).filter(Transaction.accepted_block_hash.in_(rejected_blocks)) \
                     .update({'is_accepted': False, 'accepted_block_hash': None})
                 _logger.debug(f'Set is_accepted=False for {count} TXs')
+                s.commit()
+
+            count_tx = 0
 
             # set is_accepted to True and add accepted_block_hash
             for accepted_block_hash, accepted_tx_ids in accepted_ids:
-                for db_tx in s.query(Transaction).filter(Transaction.transaction_id.in_(accepted_tx_ids)).all():
-                    db_tx.is_accepted = True
-                    db_tx.accepted_block_hash = accepted_block_hash
+                s.query(Transaction).filter(Transaction.transaction_id.in_(accepted_tx_ids)) \
+                    .update({'is_accepted': True, 'accepted_block_hash': accepted_block_hash})
+                count_tx += len(accepted_tx_ids)
 
+            _logger.debug(f'Set is_accepted=True for {count_tx} transactions.')
             s.commit()
-            _logger.debug(f'Set is_accepted=True for {len(accepted_ids)} transactions.')
 
         # Mark last known/processed as start point for the next query
         if last_known_chain_block:
