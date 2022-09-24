@@ -13,7 +13,7 @@ from utils.Event import Event
 
 _logger = logging.getLogger(__name__)
 
-CLUSTER_SIZE_INITIAL = 200
+CLUSTER_SIZE_INITIAL = 360
 CLUSTER_SIZE_SYNCED = 10
 CLUSTER_WAIT_SECONDS = 5
 
@@ -217,7 +217,8 @@ class BlocksProcessor(object):
                 session.add(_)
             try:
                 session.commit()
-                _logger.debug(f'Added {len(self.blocks_to_add)} blocks to database.')
+                _logger.debug(f'Added {len(self.blocks_to_add)} blocks to database. '
+                              f'Timestamp: {self.blocks_to_add[-1].timestamp}')
 
                 # reset queue
                 self.blocks_to_add = []
