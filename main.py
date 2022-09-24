@@ -37,7 +37,7 @@ if not kaspad_hosts:
 
 # create Kaspad client
 client = KaspadMultiClient(kaspad_hosts)
-
+task_runner = None
 
 
 async def main():
@@ -71,8 +71,12 @@ async def main():
         """
         this function is executed, when a new cluster of blocks were added to the database
         """
+        global task_runner
+        if task_runner and not task_runner.done():
+            return
+
         _logger.debug('Update is_accepted for TXs.')
-        await vcp.yield_to_database()
+        task_runner = asyncio.create_task(vcp.yield_to_database())
 
     # set up event to fire after adding new blocks
     bp.on_commited += handle_blocks_commited
