@@ -59,7 +59,7 @@ async def main():
     # if there is nothing in the db, just get latest block.
     if not start_hash:
         daginfo = await client.request("getBlockDagInfoRequest", {})
-        start_hash = daginfo["getBlockDagInfoResponse"]["tipHashes"][0]
+        start_hash = daginfo["getBlockDagInfoResponse"]["pruningPointHash"]
 
     _logger.info(f"Start hash: {start_hash}")
 
