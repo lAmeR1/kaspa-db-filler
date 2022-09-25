@@ -1,5 +1,5 @@
 # encoding: utf-8
-
+import asyncio
 import logging
 
 from dbsession import session_maker
@@ -56,7 +56,7 @@ class VirtualChainProcessor(object):
             last_known_chain_block = accepting_block_hash
             accepted_ids.append((tx_accept_dict['acceptingBlockHash'], tx_accept_dict["acceptedTransactionIds"]))
 
-            if len(accepted_ids) >= 1000:
+            if len(accepted_ids) >= 5000:
                 break
 
         # add rejected blocks if needed
