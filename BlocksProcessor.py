@@ -67,7 +67,7 @@ class BlocksProcessor(object):
                 daginfo = await self.client.request("getBlockDagInfoRequest", {})
 
             # go through each block and yield
-            for i, _ in enumerate(resp["getBlocksResponse"]["blockHashes"]):
+            for i, _ in enumerate(resp["getBlocksResponse"].get("blockHashes", [])):
 
                 if not self.synced:
                     if daginfo["getBlockDagInfoResponse"]["tipHashes"][0] == _:
