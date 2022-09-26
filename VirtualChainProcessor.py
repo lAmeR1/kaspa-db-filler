@@ -1,5 +1,5 @@
 # encoding: utf-8
-import asyncio
+
 import logging
 
 from dbsession import session_maker
