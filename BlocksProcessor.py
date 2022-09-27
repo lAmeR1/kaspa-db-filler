@@ -82,14 +82,14 @@ class BlocksProcessor(object):
                 yield _, resp["getBlocksResponse"]["blocks"][i]
 
             # new low hash is the last hash of previous response
-            if len(resp["getBlocksResponse"]["blockHashes"]) > 1:
+            if len(resp["getBlocksResponse"].get("blockHashes", [])) > 1:
                 low_hash = resp["getBlocksResponse"]["blockHashes"][-1]
             else:
                 _logger.debug('')
                 await asyncio.sleep(2)
 
             # if the cluster size isn't reached yet, async wait a few seconds
-            if self.synced and len(resp["getBlocksResponse"]["blockHashes"]) < CLUSTER_SIZE_SYNCED:
+            if self.synced and len(resp["getBlocksResponse"].get("blockHashes", [])) < CLUSTER_SIZE_SYNCED:
                 _logger.debug(f'Waiting for the next blocks request. ({len(self.blocks_to_add)}/{CLUSTER_SIZE_SYNCED})')
                 await asyncio.sleep(CLUSTER_WAIT_SECONDS)
 
@@ -146,9 +146,8 @@ class BlocksProcessor(object):
         tx_ids_to_add = list(self.txs.keys())
         with session_maker() as session:
             tx_items = session.query(Transaction).filter(Transaction.transaction_id.in_(tx_ids_to_add)).all()
-            tx_ids_to_added_in_db = [x.transaction_id for x in tx_items]
             for tx_item in tx_items:
-                tx_item.block_hash = list((set(tx_item.block_hash) & set(self.txs[tx_item.transaction_id].block_hash)))
+                tx_item.block_hash = list((set(tx_item.block_hash) | set(self.txs[tx_item.transaction_id].block_hash)))
                 self.txs.pop(tx_item.transaction_id)
 
             session.commit()
