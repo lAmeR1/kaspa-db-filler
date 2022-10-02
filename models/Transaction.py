@@ -25,7 +25,7 @@ class TransactionOutput(Base):
     script_public_key = Column(String)
     script_public_key_address = Column(String)
     script_public_key_type = Column(String)
-    accepted_block_hash = Column(String)
+    accepting_block_hash = Column(String)
 
 
 class TransactionInput(Base):

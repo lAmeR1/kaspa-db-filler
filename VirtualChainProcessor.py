@@ -66,16 +66,16 @@ class VirtualChainProcessor(object):
             # set is_accepted to False, when blocks were removed from virtual parent chain
             if rejected_blocks:
                 count = s.query(Transaction).filter(Transaction.accepting_block_hash.in_(rejected_blocks)) \
-                    .update({'is_accepted': False, 'accepted_block_hash': None})
+                    .update({'is_accepted': False, 'accepting_block_hash': None})
                 _logger.debug(f'Set is_accepted=False for {count} TXs')
                 s.commit()
 
             count_tx = 0
 
-            # set is_accepted to True and add accepted_block_hash
-            for accepted_block_hash, accepted_tx_ids in accepted_ids:
+            # set is_accepted to True and add accepting_block_hash
+            for accepting_block_hash, accepted_tx_ids in accepted_ids:
                 s.query(Transaction).filter(Transaction.transaction_id.in_(accepted_tx_ids)) \
-                    .update({'is_accepted': True, 'accepted_block_hash': accepted_block_hash})
+                    .update({'is_accepted': True, 'accepting_block_hash': accepting_block_hash})
                 count_tx += len(accepted_tx_ids)
 
             _logger.debug(f'Set is_accepted=True for {count_tx} transactions.')
