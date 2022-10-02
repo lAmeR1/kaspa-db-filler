@@ -118,10 +118,10 @@ class BlocksProcessor(object):
                     self.txs_output.append(TransactionOutput(transaction_id=transaction["verboseData"]["transactionId"],
                                                              index=index,
                                                              amount=out["amount"],
-                                                             scriptPublicKey=out["scriptPublicKey"]["scriptPublicKey"],
-                                                             scriptPublicKeyAddress=out["verboseData"][
+                                                             script_public_key=out["scriptPublicKey"]["scriptPublicKey"],
+                                                             script_public_key_address=out["verboseData"][
                                                                  "scriptPublicKeyAddress"],
-                                                             scriptPublicKeyType=out["verboseData"][
+                                                             script_public_key_type=out["verboseData"][
                                                                  "scriptPublicKeyType"]))
                 # Add transactions input
                 for index, tx_in in enumerate(transaction.get("inputs", [])):
@@ -131,8 +131,8 @@ class BlocksProcessor(object):
                                                                "transactionId"],
                                                            previous_outpoint_index=tx_in["previousOutpoint"].get(
                                                                "index", 0),
-                                                           signatureScript=tx_in["signatureScript"],
-                                                           sigOpCount=tx_in["sigOpCount"]))
+                                                           signature_script=tx_in["signatureScript"],
+                                                           sig_op_count=tx_in["sigOpCount"]))
             else:
                 # If the block if already in the Queue, merge the block_hashes.
                 self.txs[tx_id].block_hash = list(set(self.txs[tx_id].block_hash + [block_hash]))
