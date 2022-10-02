@@ -14,7 +14,7 @@ from utils.Event import Event
 _logger = logging.getLogger(__name__)
 
 CLUSTER_SIZE_INITIAL = 180 * 20
-CLUSTER_SIZE_SYNCED = 10
+CLUSTER_SIZE_SYNCED = 5
 CLUSTER_WAIT_SECONDS = 5
 
 
@@ -88,8 +88,8 @@ class BlocksProcessor(object):
                 _logger.debug('')
                 await asyncio.sleep(2)
 
-            # if the cluster size isn't reached yet, async wait a few seconds
-            if self.synced and len(resp["getBlocksResponse"].get("blockHashes", [])) < CLUSTER_SIZE_SYNCED:
+            # if synced, poll blocks after 1s
+            if self.synced:
                 _logger.debug(f'Waiting for the next blocks request. ({len(self.blocks_to_add)}/{CLUSTER_SIZE_SYNCED})')
                 await asyncio.sleep(CLUSTER_WAIT_SECONDS)
 
@@ -107,11 +107,11 @@ class BlocksProcessor(object):
                 # Add transaction
 
                 self.txs[tx_id] = Transaction(subnetwork_id=transaction["subnetworkId"],
-                                            transaction_id=transaction["verboseData"]["transactionId"],
-                                            hash=transaction["verboseData"]["hash"],
-                                            mass=transaction["verboseData"].get("mass"),
-                                            block_hash=[transaction["verboseData"]["blockHash"]],
-                                            block_time=int(transaction["verboseData"]["blockTime"]))
+                                              transaction_id=transaction["verboseData"]["transactionId"],
+                                              hash=transaction["verboseData"]["hash"],
+                                              mass=transaction["verboseData"].get("mass"),
+                                              block_hash=[transaction["verboseData"]["blockHash"]],
+                                              block_time=int(transaction["verboseData"]["blockTime"]))
 
                 # Add transactions output
                 for index, out in enumerate(transaction["outputs"]):
