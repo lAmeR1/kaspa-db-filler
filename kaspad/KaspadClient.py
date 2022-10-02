@@ -39,9 +39,14 @@ class KaspadClient(object):
                     return resp
             except KaspadCommunicationError:
                 if i == retry:
+                    _logger.debug('Retries done.')
                     raise
                 else:
+                    _logger.debug('Wait for next retry.')
                     await asyncio.sleep(0.3)
+            except Exception:
+                _logger.exception('I should not be here.')
+                raise
 
     async def notify(self, command, params, callback):
         t = KaspadThread(self.kaspad_host, self.kaspad_port, async_thread=True)
