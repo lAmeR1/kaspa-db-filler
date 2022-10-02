@@ -52,7 +52,7 @@ async def main():
                 .order_by(Transaction.block_time.desc()) \
                 .limit(1) \
                 .first() \
-                .accepted_block_hash
+                .accepting_block_hash
         except AttributeError:
             start_hash = None
 
@@ -81,8 +81,21 @@ async def main():
     # set up event to fire after adding new blocks
     bp.on_commited += handle_blocks_commited
 
-    # blocks- and virtualchainprocessor working concurrent
-    await bp.loop(start_hash)
+    # start blocks processor working concurrent
+    while True:
+        try:
+            await bp.loop(start_hash)
+        except Exception:
+            _logger.exception('Exception occured and script crashed. Restart in 1m')
+            bp.synced = False
+            await asyncio.sleep(60)
+            with session_maker() as s:
+                start_hash = s.query(Transaction) \
+                    .where(Transaction.is_accepted == True) \
+                    .order_by(Transaction.block_time.desc()) \
+                    .limit(1) \
+                    .first() \
+                    .accepting_block_hash
 
 
 if __name__ == '__main__':
