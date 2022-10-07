@@ -37,16 +37,12 @@ if not kaspad_hosts:
 
 # create Kaspad client
 client = KaspadMultiClient(kaspad_hosts)
-
+task_runner = None
 
 
 async def main():
     # initialize kaspads
     await client.initialize_all()
-
-    # create instances of blocksprocessor and virtualchainprocessor
-    bp = BlocksProcessor(client)
-    vcp = VirtualChainProcessor(client)
 
     # find last acceptedTx's block hash, when restarting this tool
     with session_maker() as s:
@@ -56,41 +52,50 @@ async def main():
                 .order_by(Transaction.block_time.desc()) \
                 .limit(1) \
                 .first() \
-                .block_hash
+                .accepting_block_hash
         except AttributeError:
             start_hash = None
 
     # if there is nothing in the db, just get latest block.
     if not start_hash:
         daginfo = await client.request("getBlockDagInfoRequest", {})
-        start_hash = daginfo["getBlockDagInfoResponse"]["tipHashes"][0]
+        start_hash = daginfo["getBlockDagInfoResponse"]["pruningPointHash"]
 
     _logger.info(f"Start hash: {start_hash}")
+
+    # create instances of blocksprocessor and virtualchainprocessor
+    bp = BlocksProcessor(client)
+    vcp = VirtualChainProcessor(client, start_hash)
 
     async def handle_blocks_commited(e):
         """
         this function is executed, when a new cluster of blocks were added to the database
         """
-        if not bp.synced:
+        global task_runner
+        if task_runner and not task_runner.done():
             return
 
-        # if there are prepared acceptedTransactions, go through and update database
-        if vcp.is_prepared():
-            _logger.debug('Update is_accepted for TXs.')
-            await vcp.yield_to_database()
-
-        # first, prepare virtual chain to be added soon.
-        # this mechanism is needed to guarantee, all TXs are added in database,
-        # when going through "acceptedTransactions"
-        _logger.debug('acceptedTransactions are prepared to be insterted after adding next blocks.')
-        await vcp.prepare()
+        _logger.debug('Update is_accepted for TXs.')
+        task_runner = asyncio.create_task(vcp.yield_to_database())
 
     # set up event to fire after adding new blocks
     bp.on_commited += handle_blocks_commited
 
-    # blocks- and virtualchainprocessor working concurrent
-    await asyncio.gather(bp.loop(start_hash),
-                         vcp.loop(start_hash))
+    # start blocks processor working concurrent
+    while True:
+        try:
+            await bp.loop(start_hash)
+        except Exception:
+            _logger.exception('Exception occured and script crashed. Restart in 1m')
+            bp.synced = False
+            await asyncio.sleep(60)
+            with session_maker() as s:
+                start_hash = s.query(Transaction) \
+                    .where(Transaction.is_accepted == True) \
+                    .order_by(Transaction.block_time.desc()) \
+                    .limit(1) \
+                    .first() \
+                    .accepting_block_hash
 
 
 if __name__ == '__main__':
