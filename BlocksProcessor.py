@@ -118,11 +118,13 @@ class BlocksProcessor(object):
                     self.txs_output.append(TransactionOutput(transaction_id=transaction["verboseData"]["transactionId"],
                                                              index=index,
                                                              amount=out["amount"],
-                                                             script_public_key=out["scriptPublicKey"]["scriptPublicKey"],
+                                                             script_public_key=out["scriptPublicKey"][
+                                                                 "scriptPublicKey"],
                                                              script_public_key_address=out["verboseData"][
                                                                  "scriptPublicKeyAddress"],
                                                              script_public_key_type=out["verboseData"][
-                                                                 "scriptPublicKeyType"]))
+                                                                 "scriptPublicKeyType"],
+                                                             block_time=int(transaction["verboseData"]["blockTime"])))
                 # Add transactions input
                 for index, tx_in in enumerate(transaction.get("inputs", [])):
                     self.txs_input.append(TransactionInput(transaction_id=transaction["verboseData"]["transactionId"],
@@ -132,7 +134,8 @@ class BlocksProcessor(object):
                                                            previous_outpoint_index=tx_in["previousOutpoint"].get(
                                                                "index", 0),
                                                            signature_script=tx_in["signatureScript"],
-                                                           sig_op_count=tx_in["sigOpCount"]))
+                                                           sig_op_count=tx_in["sigOpCount"],
+                                                           block_time=int(transaction["verboseData"]["blockTime"])))
             else:
                 # If the block if already in the Queue, merge the block_hashes.
                 self.txs[tx_id].block_hash = list(set(self.txs[tx_id].block_hash + [block_hash]))
