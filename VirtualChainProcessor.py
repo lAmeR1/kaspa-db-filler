@@ -5,6 +5,7 @@ import logging
 from dbsession import session_maker
 from models.Block import Block
 from models.Transaction import Transaction
+from models.TxAddrMapping import TxAddrMapping
 
 _logger = logging.getLogger(__name__)
 
@@ -70,6 +71,11 @@ class VirtualChainProcessor(object):
                 _logger.debug(f'Set is_accepted=False for {count} TXs')
                 s.commit()
 
+            for tx_id in s.query(Transaction.transaction_id) \
+                    .filter(Transaction.accepting_block_hash.in_(rejected_blocks)):
+                s.query(TxAddrMapping).filter(TxAddrMapping.transaction_id.in_(tx_id.transaction_id)) \
+                    .update({'is_accepted': False})
+
             count_tx = 0
 
             # set is_accepted to True and add accepting_block_hash
@@ -79,6 +85,13 @@ class VirtualChainProcessor(object):
                 count_tx += len(accepted_tx_ids)
 
             _logger.debug(f'Set is_accepted=True for {count_tx} transactions.')
+            s.commit()
+
+            # set is_accepted in tx<->addr mapping table
+            for accepting_block_hash, accepted_tx_ids in accepted_ids:
+                s.query(TxAddrMapping).filter(TxAddrMapping.transaction_id.in_(accepted_tx_ids)) \
+                    .update({'is_accepted': True})
+
             s.commit()
 
         # Mark last known/processed as start point for the next query
