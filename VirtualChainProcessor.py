@@ -66,6 +66,7 @@ class VirtualChainProcessor(object):
         with session_maker() as s:
             # set is_accepted to False, when blocks were removed from virtual parent chain
             if rejected_blocks:
+                _logger.debug(f'Found rejected blocks: {rejected_blocks}')
                 count = s.query(Transaction).filter(Transaction.accepting_block_hash.in_(rejected_blocks)) \
                     .update({'is_accepted': False, 'accepting_block_hash': None})
                 _logger.info(f'Set is_accepted=False for {count} TXs')
@@ -73,13 +74,15 @@ class VirtualChainProcessor(object):
 
                 rejected_tx_ids = [x[0] for x in s.query(Transaction.transaction_id) \
                     .filter(Transaction.accepting_block_hash
-                            .in_([rejected_blocks])).all()]
+                            .in_(rejected_blocks)).all()]
 
                 _logger.info(f'Now set is_accepted=False for {rejected_tx_ids}.')
                 if rejected_tx_ids:
                     s.query(TxAddrMapping).filter(TxAddrMapping.transaction_id.in_(rejected_tx_ids)) \
                         .update({'is_accepted': False})
+                    s.commit()
                     _logger.info('Set is_accepted=False done.')
+
 
             count_tx = 0
 
