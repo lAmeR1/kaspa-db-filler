@@ -83,7 +83,6 @@ class VirtualChainProcessor(object):
                     s.commit()
                     _logger.info('Set is_accepted=False done.')
 
-
             count_tx = 0
 
             # set is_accepted to True and add accepting_block_hash
@@ -109,9 +108,9 @@ class VirtualChainProcessor(object):
         # Clear the current response
         self.virtual_chain_response = None
 
-    async def yield_to_database(self):
+    async def update_accepted_info(self):
         """
-        Add known blocks to database
+        Updates the is_accepted flag to all blocks
         """
         resp = await self.client.request("getVirtualSelectedParentChainFromBlockRequest",
                                          {"startHash": self.start_point,

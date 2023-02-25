@@ -75,8 +75,13 @@ async def main():
         if task_runner and not task_runner.done():
             return
 
+        if task_runner and task_runner.done():
+            # check if there are exceptions in VCP task...
+            _logger.debug("Checking exceptions in VCP")
+            task_runner.result()
+
         _logger.debug('Update is_accepted for TXs.')
-        task_runner = asyncio.create_task(vcp.yield_to_database())
+        task_runner = asyncio.create_task(vcp.update_accepted_info())
 
     # set up event to fire after adding new blocks
     bp.on_commited += handle_blocks_commited
