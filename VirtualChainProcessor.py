@@ -68,13 +68,18 @@ class VirtualChainProcessor(object):
             if rejected_blocks:
                 count = s.query(Transaction).filter(Transaction.accepting_block_hash.in_(rejected_blocks)) \
                     .update({'is_accepted': False, 'accepting_block_hash': None})
-                _logger.debug(f'Set is_accepted=False for {count} TXs')
+                _logger.info(f'Set is_accepted=False for {count} TXs')
                 s.commit()
 
-            for tx_id in s.query(Transaction.transaction_id) \
-                    .filter(Transaction.accepting_block_hash.in_(rejected_blocks)):
-                s.query(TxAddrMapping).filter(TxAddrMapping.transaction_id.in_(tx_id.transaction_id)) \
-                    .update({'is_accepted': False})
+                rejected_tx_ids = [x[0] for x in s.query(Transaction.transaction_id) \
+                    .filter(Transaction.accepting_block_hash
+                            .in_([rejected_blocks])).all()]
+
+                _logger.info(f'Now set is_accepted=False for {rejected_tx_ids}.')
+                if rejected_tx_ids:
+                    s.query(TxAddrMapping).filter(TxAddrMapping.transaction_id.in_(rejected_tx_ids)) \
+                        .update({'is_accepted': False})
+                    _logger.info('Set is_accepted=False done.')
 
             count_tx = 0
 
