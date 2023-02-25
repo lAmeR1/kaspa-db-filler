@@ -116,4 +116,6 @@ class VirtualChainProcessor(object):
         else:
             self.virtual_chain_response = None
 
+        _logger.debug('Updating TXs in DB')
         await self.__update_transactions_in_db()
+        _logger.debug('Updating TXs in DB done.')

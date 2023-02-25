@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 CLUSTER_SIZE_INITIAL = 180 * 20
 CLUSTER_SIZE_SYNCED = 5
-CLUSTER_WAIT_SECONDS = 5
+CLUSTER_WAIT_SECONDS = 2
 
 
 class BlocksProcessor(object):
@@ -44,12 +44,16 @@ class BlocksProcessor(object):
     async def loop(self, start_point):
         # go through each block added to DAG
         async for block_hash, block in self.blockiter(start_point):
-            # prepare add block and tx to database
-            await self.__add_block_to_queue(block_hash, block)
-            await self.__add_tx_to_queue(block_hash, block)
+            if block_hash is not None:
+                # prepare add block and tx to database
+                await self.__add_block_to_queue(block_hash, block)
+                await self.__add_tx_to_queue(block_hash, block)
 
             # if cluster size is reached, insert to database
-            if len(self.blocks_to_add) >= (CLUSTER_SIZE_INITIAL if not self.synced else CLUSTER_SIZE_SYNCED):
+            bcc = len(self.blocks_to_add) >= (CLUSTER_SIZE_INITIAL if not self.synced else CLUSTER_SIZE_SYNCED)
+
+            # or we are waiting and cache is not empty
+            if bcc or (block_hash is None and len(self.blocks_to_add) >= 1):
                 await self.commit_blocks()
                 await self.commit_txs()
                 await self.add_and_commit_tx_addr_mapping()
@@ -97,7 +101,8 @@ class BlocksProcessor(object):
 
             # if synced, poll blocks after 1s
             if self.synced:
-                _logger.debug(f'Waiting for the next blocks request. ({len(self.blocks_to_add)}/{CLUSTER_SIZE_SYNCED})')
+                _logger.debug(f'Iterator waiting {CLUSTER_WAIT_SECONDS}s for next request.')
+                yield None, None
                 await asyncio.sleep(CLUSTER_WAIT_SECONDS)
 
     def __get_address_from_tx_outputs(self, transaction_id, index):
@@ -180,7 +185,8 @@ class BlocksProcessor(object):
         cnt = 0
         with session_maker() as session:
             for tx_addr_mapping in self.tx_addr_mapping:
-                if (tx_addr_tuple := (tx_addr_mapping.transaction_id, tx_addr_mapping.address)) not in self.tx_addr_cache:
+                if (
+                tx_addr_tuple := (tx_addr_mapping.transaction_id, tx_addr_mapping.address)) not in self.tx_addr_cache:
                     session.add(tx_addr_mapping)
                     cnt += 1
                     self.tx_addr_cache.append(tx_addr_tuple)

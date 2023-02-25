@@ -83,19 +83,8 @@ async def main():
 
     # start blocks processor working concurrent
     while True:
-        try:
-            await bp.loop(start_hash)
-        except Exception:
-            _logger.exception('Exception occured and script crashed. Restart in 1m')
-            bp.synced = False
-            await asyncio.sleep(60)
-            with session_maker() as s:
-                start_hash = s.query(Transaction) \
-                    .where(Transaction.is_accepted == True) \
-                    .order_by(Transaction.block_time.desc()) \
-                    .limit(1) \
-                    .first() \
-                    .accepting_block_hash
+        # on exception just crash - docker will restart it
+        await bp.loop(start_hash)
 
 
 if __name__ == '__main__':
