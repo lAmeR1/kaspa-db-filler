@@ -21,8 +21,8 @@ RUN apk --no-cache add \
 RUN pip install \
   pipenv
 
-RUN addgroup -S -g 55746 kaspa-db-filler \
-  && adduser -h /app -S -D -g '' -G kaspa-db-filler -u 55746 kaspa-db-filler
+RUN addgroup -S -g 55746 api \
+  && adduser -h /app -S -D -g '' -G api -u 55746 api
 
 WORKDIR /app
 
