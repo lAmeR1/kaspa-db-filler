@@ -1,10 +1,13 @@
 import asyncio
 import logging
 import os
+import threading
 
 from BlocksProcessor import BlocksProcessor
+from TxAddrMappingUpdater import TxAddrMappingUpdater
 from VirtualChainProcessor import VirtualChainProcessor
 from dbsession import create_all, session_maker
+from helper import KeyValueStore
 from kaspad.KaspadMultiClient import KaspadMultiClient
 from models.Transaction import Transaction
 
@@ -45,16 +48,7 @@ async def main():
     await client.initialize_all()
 
     # find last acceptedTx's block hash, when restarting this tool
-    with session_maker() as s:
-        try:
-            start_hash = s.query(Transaction) \
-                .where(Transaction.is_accepted == True) \
-                .order_by(Transaction.block_time.desc()) \
-                .limit(1) \
-                .first() \
-                .accepting_block_hash
-        except AttributeError:
-            start_hash = None
+    start_hash = KeyValueStore.get("vspc_last_start_hash")
 
     # if there is nothing in the db, just get latest block.
     if not start_hash:
@@ -75,22 +69,49 @@ async def main():
         if task_runner and not task_runner.done():
             return
 
-        if task_runner and task_runner.done():
-            # check if there are exceptions in VCP task...
-            _logger.debug("Checking exceptions in VCP")
-            task_runner.result()
-
         _logger.debug('Update is_accepted for TXs.')
-        task_runner = asyncio.create_task(vcp.update_accepted_info())
+        task_runner = asyncio.create_task(vcp.yield_to_database())
 
     # set up event to fire after adding new blocks
     bp.on_commited += handle_blocks_commited
 
     # start blocks processor working concurrent
     while True:
-        # on exception just crash - docker will restart it
-        await bp.loop(start_hash)
+        try:
+            await bp.loop(start_hash)
+        except Exception:
+            _logger.exception('Exception occured and script crashed..')
+            raise
 
 
 if __name__ == '__main__':
+    tx_addr_mapping_updater = TxAddrMappingUpdater()
+
+
+    # custom exception hook for thread
+    def custom_hook(args):
+        global tx_addr_mapping_updater
+        # report the failure
+        _logger.error(f'Thread failed: {args.exc_value}')
+        thread = args[3]
+
+        # check if TxAddrMappingUpdater
+        if thread.name == 'TxAddrMappingUpdater':
+            print(args[0])
+            print(args[1])
+            print(args[2])
+            print(args[3])
+            p = threading.Thread(target=tx_addr_mapping_updater.loop, daemon=True, name="TxAddrMappingUpdater")
+            p.start()
+            raise Exception("TxAddrMappingUpdater thread crashed.")
+
+
+
+    # set the exception hook
+    threading.excepthook = custom_hook
+
+    # run TxAddrMappingUpdater
+    # will be rerun
+    threading.Thread(target=tx_addr_mapping_updater.loop, daemon=True, name="TxAddrMappingUpdater").start()
+
     asyncio.run(main())
