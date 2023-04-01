@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import threading
+import time
 
 from BlocksProcessor import BlocksProcessor
 from TxAddrMappingUpdater import TxAddrMappingUpdater
@@ -47,13 +48,18 @@ async def main():
     # initialize kaspads
     await client.initialize_all()
 
+    # wait for client to be synced
+    while client.kaspads[0].is_synced == False:
+        _logger.info('Client not synced yet. Waiting...')
+        time.sleep(60)
+
     # find last acceptedTx's block hash, when restarting this tool
     start_hash = KeyValueStore.get("vspc_last_start_hash")
 
     # if there is nothing in the db, just get latest block.
     if not start_hash:
         daginfo = await client.request("getBlockDagInfoRequest", {})
-        start_hash = daginfo["getBlockDagInfoResponse"]["pruningPointHash"]
+        start_hash = daginfo["getBlockDagInfoResponse"]["virtualParentHashes"][0]
 
     _logger.info(f"Start hash: {start_hash}")
 
