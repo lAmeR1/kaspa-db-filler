@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 
 CLUSTER_SIZE_INITIAL = 180 * 20
 CLUSTER_SIZE_SYNCED = 5
-CLUSTER_WAIT_SECONDS = 5
+CLUSTER_WAIT_SECONDS = 4
 
 
 class BlocksProcessor(object):

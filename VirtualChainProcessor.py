@@ -95,12 +95,16 @@ class VirtualChainProcessor(object):
         resp = await self.client.request("getVirtualSelectedParentChainFromBlockRequest",
                                          {"startHash": self.start_point,
                                           "includeAcceptedTransactionIds": True},
-                                         timeout=120)
+                                         timeout=240)
 
         # if there is a response, add to queue and set new startpoint
         if resp["getVirtualSelectedParentChainFromBlockResponse"]:
+            _logger.debug(f'Got response with '
+                          f'{len(resp["getVirtualSelectedParentChainFromBlockResponse"]["addedChainBlockHashes"])}'
+                          f' addedChainBlockHashes')
             self.virtual_chain_response = resp["getVirtualSelectedParentChainFromBlockResponse"]
         else:
+            _logger.debug('Empty response.')
             self.virtual_chain_response = None
 
         await self.__update_transactions_in_db()
