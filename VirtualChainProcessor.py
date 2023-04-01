@@ -3,6 +3,7 @@
 import logging
 
 from dbsession import session_maker
+from helper import KeyValueStore
 from models.Block import Block
 from models.Transaction import Transaction
 
@@ -51,7 +52,7 @@ class VirtualChainProcessor(object):
             accepting_block_hash = tx_accept_dict['acceptingBlockHash']
 
             if accepting_block_hash not in parent_chain_blocks_in_db:
-                break  # Stop once we reached a none existing block
+                break  # Stop once we reached a non-existing block
 
             last_known_chain_block = accepting_block_hash
             accepted_ids.append((tx_accept_dict['acceptingBlockHash'], tx_accept_dict["acceptedTransactionIds"]))
@@ -83,6 +84,7 @@ class VirtualChainProcessor(object):
 
         # Mark last known/processed as start point for the next query
         if last_known_chain_block:
+            KeyValueStore.set("vspc_last_start_hash", last_known_chain_block)
             self.start_point = last_known_chain_block
 
         # Clear the current response

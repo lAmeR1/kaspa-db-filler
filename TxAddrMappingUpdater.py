@@ -1,7 +1,6 @@
 # encoding: utf-8
 
 import logging
-import os
 import time
 from datetime import datetime, timedelta
 
@@ -12,40 +11,46 @@ _logger = logging.getLogger(__name__)
 
 class TxAddrMappingUpdater(object):
     def __init__(self):
-        self.last_block_time = 1680096059000
+        with session_maker() as s:
+            res = s.execute("SELECT block_time "
+                            "FROM tx_id_address_mapping "
+                            "ORDER by id "
+                            "DESC "
+                            "LIMIT 1").first()
 
+        # get last added block time and substract 1 minute for instance
+        self.last_block_time = res[0] - 1000 * 60
     @staticmethod
     def minimum_timestamp():
         return round((datetime.now() - timedelta(minutes=1)).timestamp() * 1000)
 
     def loop(self):
         error_cnt = 0
-        i = 0
-        while True:
-            i += 1
 
-            if i == 5:
-                raise Exception('und jetzt?')
+        _logger.debug('Start TxAddrMappingUpdater')
+
+        while True:
             try:
-                count_outputs, new_last_block_time_outputs = t.update_outputs(self.last_block_time)
-                count_inputs, new_last_block_time_inputs = t.update_inputs(self.last_block_time)
+                count_outputs, new_last_block_time_outputs = self.update_outputs(self.last_block_time)
+                count_inputs, new_last_block_time_inputs = self.update_inputs(self.last_block_time)
             except Exception:
                 error_cnt += 1
                 if error_cnt <= 3:
                     time.sleep(10)
                     continue
-                raise Exception('Exception occured updating TxAddrMapping table')
+                raise
 
-            print(f"Updated {count_inputs} input mappings.")
-            print(f"Updated {count_outputs} outputs mappings.")
+            _logger.info(f"Updated {count_inputs} input mappings.")
+            _logger.info(f"Updated {count_outputs} outputs mappings.")
 
-            # initialize
-            new_last_block_time = new_last_block_time_inputs
+            # initialize with latest known block time
+            new_last_block_time = max(new_last_block_time_outputs or 0,
+                                      new_last_block_time_inputs or 0)
 
             # fallback if nothing added
             if not new_last_block_time_outputs and not new_last_block_time_inputs:
-                print("No mapping to be added.")
-                new_last_block_time = t.get_last_block_time(self.last_block_time)
+                _logger.debug("No mapping to be added.")
+                new_last_block_time = self.get_last_block_time(self.last_block_time)
 
             # get minimum timestamp to check next loop
             # -> block_time is not an consistent increasing value -> need to leave space in the past
@@ -57,8 +62,8 @@ class TxAddrMappingUpdater(object):
                                        min_timestamp,
                                        new_last_block_time_inputs or new_last_block_time)
 
-            _logger.debug(datetime.fromtimestamp(self.last_block_time / 1000).isoformat())
-            print(datetime.fromtimestamp(self.last_block_time / 1000).isoformat())
+            _logger.debug(f"Added TxAddrMapping up to: "
+                          f"{datetime.fromtimestamp(self.last_block_time / 1000).isoformat()}")
 
             if self.last_block_time == min_timestamp:
                 # updater catched up. You have time
@@ -90,7 +95,7 @@ class TxAddrMappingUpdater(object):
         transactions.block_time
 
         FROM transactions
-         WHERE transactions.block_time > {start_block_time}) as sq
+         WHERE transactions.block_time > :blocktime) as sq
 
         LEFT JOIN transactions_inputs ON transactions_inputs.transaction_id = sq.tid
         LEFT JOIN transactions_outputs ON transactions_outputs.transaction_id = transactions_inputs.previous_outpoint_hash AND  transactions_outputs.index = transactions_inputs.previous_outpoint_index::int
@@ -99,7 +104,7 @@ class TxAddrMappingUpdater(object):
          WHERE script_public_key_address IS NOT NULL)
 
          ON CONFLICT DO NOTHING
-         RETURNING block_time;""")
+         RETURNING block_time;""", {"blocktime": start_block_time})
 
             s.commit()
 
@@ -122,12 +127,12 @@ class TxAddrMappingUpdater(object):
                 
                 FROM transactions
                 LEFT JOIN transactions_outputs ON transactions.transaction_id = transactions_outputs.transaction_id
-                WHERE transactions.block_time > {start_block_time}
+                WHERE transactions.block_time > :blocktime
                  ORDER by transactions.block_time ASC
                  LIMIT 400)
                 
                  ON CONFLICT DO NOTHING
-                 RETURNING block_time;""")
+                 RETURNING block_time;""", {"blocktime": start_block_time})
 
             s.commit()
 
@@ -139,23 +144,26 @@ class TxAddrMappingUpdater(object):
 
 
 if __name__ == '__main__':
-    # custom exception hook
+    tx_addr_mapping_updater = TxAddrMappingUpdater()
+
+
+    # custom exception hook for thread
     def custom_hook(args):
         # report the failure
         print(f'Thread failed: {args.exc_value}')
-        os._exit(1)
+        thread = args[3]
 
+        # check if TxAddrMappingUpdater
+        if thread.name == 'TxAddrMappingUpdater':
+            try:
+                raise Exception("TxAddrMappingUpdater thread crashed.")
+            finally:
+                p = threading.Thread(target=tx_addr_mapping_updater.loop, daemon=True, name="TxAddrMappingUpdater")
+                p.start()
 
-    t = TxAddrMappingUpdater()
 
     import threading
 
     # set the exception hook
     threading.excepthook = custom_hook
-    p = threading.Thread(target=t.loop, daemon=True)
-
-    p.start()
-
-    while True:
-        print("bin da")
-        time.sleep(1)
+    threading.Thread(target=tx_addr_mapping_updater.loop, daemon=True, name="TxAddrMappingUpdater").start()
