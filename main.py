@@ -25,6 +25,7 @@ logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
 _logger = logging.getLogger(__name__)
 
 # create tables in database
+_logger.info('Creating DBs if not exist.')
 create_all(drop=False)
 
 kaspad_hosts = []
@@ -112,6 +113,7 @@ if __name__ == '__main__':
 
     # run TxAddrMappingUpdater
     # will be rerun
+    _logger.info('Starting updater thread now.')
     threading.Thread(target=tx_addr_mapping_updater.loop, daemon=True, name="TxAddrMappingUpdater").start()
-
+    _logger.info('Starting main thread now.')
     asyncio.run(main())
