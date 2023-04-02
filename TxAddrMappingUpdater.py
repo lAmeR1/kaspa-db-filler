@@ -81,8 +81,8 @@ class TxAddrMappingUpdater(object):
 
             # new last block times are sorted in the database!
             next_block_time = min(new_last_block_time_outputs or new_last_block_time,
-                                       min_timestamp,
-                                       new_last_block_time_inputs or new_last_block_time)
+                                  min_timestamp,
+                                  new_last_block_time_inputs or new_last_block_time)
 
             if self.last_block_time == next_block_time:
                 # this only happens, when kaspad is not synced and the last block ( far in the past ) is not changing
