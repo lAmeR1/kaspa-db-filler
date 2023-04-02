@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 
 from dbsession import session_maker
 
+LIMIT = 2000
+
 _logger = logging.getLogger(__name__)
 
 
@@ -18,8 +20,9 @@ class TxAddrMappingUpdater(object):
                             "DESC "
                             "LIMIT 1").first()
 
-        # get last added block time and substract 1 minute for instance
-        self.last_block_time = res[0] - 1000 * 60
+        # get last added block time and substract 1 hour just for instance
+        self.last_block_time = res[0] - 1000 * 60 * 60
+
     @staticmethod
     def minimum_timestamp():
         return round((datetime.now() - timedelta(minutes=1)).timestamp() * 1000)
@@ -75,9 +78,9 @@ class TxAddrMappingUpdater(object):
                 transactions.block_time
                 
                 FROM transactions
-                WHERE transactions.block_time > :blocktime
+                WHERE transactions.block_time >= :blocktime
                  ORDER by transactions.block_time ASC
-                 LIMIT 400""", {"blocktime": start_block_time}).all()
+                 LIMIT {LIMIT}""", {"blocktime": start_block_time}).all()
 
         try:
             return result[-1][0]
@@ -95,12 +98,12 @@ class TxAddrMappingUpdater(object):
         transactions.block_time
 
         FROM transactions
-         WHERE transactions.block_time > :blocktime) as sq
+         WHERE transactions.block_time >= :blocktime) as sq
 
         LEFT JOIN transactions_inputs ON transactions_inputs.transaction_id = sq.tid
-        LEFT JOIN transactions_outputs ON transactions_outputs.transaction_id = transactions_inputs.previous_outpoint_hash AND  transactions_outputs.index = transactions_inputs.previous_outpoint_index::int
+        LEFT JOIN transactions_outputs ON transactions_outputs.transaction_id = transactions_inputs.previous_outpoint_hash AND transactions_outputs.index = transactions_inputs.previous_outpoint_index
          ORDER by sq.block_time ASC
-         LIMIT 400) as masterq
+         LIMIT {LIMIT}) as masterq
          WHERE script_public_key_address IS NOT NULL)
 
          ON CONFLICT DO NOTHING
@@ -127,9 +130,9 @@ class TxAddrMappingUpdater(object):
                 
                 FROM transactions
                 LEFT JOIN transactions_outputs ON transactions.transaction_id = transactions_outputs.transaction_id
-                WHERE transactions.block_time > :blocktime
+                WHERE transactions.block_time >= :blocktime
                  ORDER by transactions.block_time ASC
-                 LIMIT 400)
+                 LIMIT {LIMIT})
                 
                  ON CONFLICT DO NOTHING
                  RETURNING block_time;""", {"blocktime": start_block_time})
@@ -141,29 +144,3 @@ class TxAddrMappingUpdater(object):
             return len(result), result[-1][0]
         except IndexError:
             return 0, None
-
-
-if __name__ == '__main__':
-    tx_addr_mapping_updater = TxAddrMappingUpdater()
-
-
-    # custom exception hook for thread
-    def custom_hook(args):
-        # report the failure
-        print(f'Thread failed: {args.exc_value}')
-        thread = args[3]
-
-        # check if TxAddrMappingUpdater
-        if thread.name == 'TxAddrMappingUpdater':
-            try:
-                raise Exception("TxAddrMappingUpdater thread crashed.")
-            finally:
-                p = threading.Thread(target=tx_addr_mapping_updater.loop, daemon=True, name="TxAddrMappingUpdater")
-                p.start()
-
-
-    import threading
-
-    # set the exception hook
-    threading.excepthook = custom_hook
-    threading.Thread(target=tx_addr_mapping_updater.loop, daemon=True, name="TxAddrMappingUpdater").start()

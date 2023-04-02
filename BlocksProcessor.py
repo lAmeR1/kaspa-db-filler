@@ -131,8 +131,8 @@ class BlocksProcessor(object):
                                                            index=index,
                                                            previous_outpoint_hash=tx_in["previousOutpoint"][
                                                                "transactionId"],
-                                                           previous_outpoint_index=tx_in["previousOutpoint"].get(
-                                                               "index", 0),
+                                                           previous_outpoint_index=int(tx_in["previousOutpoint"].get(
+                                                               "index", 0)),
                                                            signature_script=tx_in["signatureScript"],
                                                            sig_op_count=tx_in["sigOpCount"],
                                                            block_time=int(transaction["verboseData"]["blockTime"])))

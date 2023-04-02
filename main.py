@@ -7,10 +7,9 @@ import time
 from BlocksProcessor import BlocksProcessor
 from TxAddrMappingUpdater import TxAddrMappingUpdater
 from VirtualChainProcessor import VirtualChainProcessor
-from dbsession import create_all, session_maker
+from dbsession import create_all
 from helper import KeyValueStore
 from kaspad.KaspadMultiClient import KaspadMultiClient
-from models.Transaction import Transaction
 
 logging.basicConfig(format="%(asctime)s::%(levelname)s::%(name)s::%(message)s",
                     level=logging.DEBUG if os.getenv("DEBUG", False) else logging.INFO,
@@ -103,14 +102,9 @@ if __name__ == '__main__':
 
         # check if TxAddrMappingUpdater
         if thread.name == 'TxAddrMappingUpdater':
-            print(args[0])
-            print(args[1])
-            print(args[2])
-            print(args[3])
             p = threading.Thread(target=tx_addr_mapping_updater.loop, daemon=True, name="TxAddrMappingUpdater")
             p.start()
             raise Exception("TxAddrMappingUpdater thread crashed.")
-
 
 
     # set the exception hook

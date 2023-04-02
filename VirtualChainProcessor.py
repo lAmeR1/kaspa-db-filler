@@ -1,5 +1,5 @@
 # encoding: utf-8
-
+import asyncio
 import logging
 
 from dbsession import session_maker
@@ -109,4 +109,4 @@ class VirtualChainProcessor(object):
             _logger.debug('Empty response.')
             self.virtual_chain_response = None
 
-        await self.__update_transactions_in_db()
+        asyncio.create_task(self.__update_transactions_in_db())
