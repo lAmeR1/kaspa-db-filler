@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, Boolean, ARRAY, Integer, BigInteger, TIMESTAMP
+from sqlalchemy import Column, String, Float, Boolean, ARRAY, Integer, BigInteger, TIMESTAMP, Index
 
 from dbsession import Base
 
@@ -9,7 +9,6 @@ class Block(Base):
     hash = Column(String, primary_key=True)
     accepted_id_merkle_root = Column(String)
     difficulty = Column(Float)
-    # childrenHashes = Column(JSONB)
     is_chain_block = Column(Boolean)
     merge_set_blues_hashes = Column(ARRAY(String))
     merge_set_reds_hashes = Column(ARRAY(String))
@@ -26,3 +25,7 @@ class Block(Base):
     utxo_commitment = Column(String)
     version = Column(Integer)
 
+
+Index("block_chainblock", Block.is_chain_block)
+Index("idx_blue_score", Block.blue_score)
+Index("idx_daa_score", Block.daa_score)
