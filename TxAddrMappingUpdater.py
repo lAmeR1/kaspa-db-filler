@@ -13,15 +13,25 @@ _logger = logging.getLogger(__name__)
 
 class TxAddrMappingUpdater(object):
     def __init__(self):
-        with session_maker() as s:
-            res = s.execute("SELECT block_time "
-                            "FROM tx_id_address_mapping "
-                            "ORDER by id "
-                            "DESC "
-                            "LIMIT 1").first()
+        for i in range(2):
+            if i > 0:
+                _logger.info(f"Retry {i}. Wait 10s")
+                time.sleep(10)
 
-        # get last added block time and substract 1 hour just for instance
-        self.last_block_time = res[0] - 1000 * 60 * 60
+            with session_maker() as s:
+                res = s.execute("SELECT block_time "
+                                "FROM tx_id_address_mapping "
+                                "ORDER by id "
+                                "DESC "
+                                "LIMIT 1").first()
+
+            # get last added block time and substract 1 hour just for instance
+            try:
+                self.last_block_time = res[0] - 1000 * 60 * 60
+                break
+            except:
+                _logger.info('No block time found in database.')
+
 
     @staticmethod
     def minimum_timestamp():
