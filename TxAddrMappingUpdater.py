@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from dbsession import session_maker
 from models.TxAddrMapping import TxAddrMapping
 
-LIMIT = 2000
+LIMIT = 100
 PRECONDITION_RETRIES = 2
 
 _logger = logging.getLogger(__name__)
@@ -114,25 +114,23 @@ class TxAddrMappingUpdater(object):
 
     def update_inputs(self, start_block_time: int):
         with session_maker() as s:
-            result = s.execute(f"""INSERT INTO tx_id_address_mapping (transaction_id, address, block_time)
-
-        (SELECT DISTINCT * FROM 
-        (SELECT tid, transactions_outputs.script_public_key_address, sq.block_time FROM 
+            result = s.execute(f""" INSERT INTO tx_id_address_mapping (transaction_id, address, block_time)
+ 
+        (SELECT DISTINCT tid, transactions_outputs.script_public_key_address, sq.block_time FROM 
         (SELECT 
         transactions.transaction_id as tid,
         transactions.block_time
-
         FROM transactions
-         WHERE transactions.block_time >= :blocktime) as sq
-
+		WHERE block_time >= :blocktime
+		ORDER by block_time
+  LIMIT :limit) as sq
         LEFT JOIN transactions_inputs ON transactions_inputs.transaction_id = sq.tid
         LEFT JOIN transactions_outputs ON transactions_outputs.transaction_id = transactions_inputs.previous_outpoint_hash AND transactions_outputs.index = transactions_inputs.previous_outpoint_index
-         ORDER by sq.block_time ASC
-         LIMIT {LIMIT}) as masterq
-         WHERE script_public_key_address IS NOT NULL)
-
-         ON CONFLICT DO NOTHING
-         RETURNING block_time;""", {"blocktime": start_block_time})
+   
+         WHERE transactions_outputs.script_public_key_address IS NOT NULL
+    ORDER by sq.block_time ASC)
+   ON CONFLICT DO NOTHING
+         RETURNING block_time;""", {"blocktime": start_block_time, "limit": LIMIT})
 
             s.commit()
 
@@ -157,10 +155,10 @@ class TxAddrMappingUpdater(object):
                 LEFT JOIN transactions_outputs ON transactions.transaction_id = transactions_outputs.transaction_id
                 WHERE transactions.block_time >= :blocktime
                  ORDER by transactions.block_time ASC
-                 LIMIT {LIMIT})
+                 LIMIT :limit)
                 
                  ON CONFLICT DO NOTHING
-                 RETURNING block_time;""", {"blocktime": start_block_time})
+                 RETURNING block_time;""", {"blocktime": start_block_time, "limit": LIMIT})
 
             s.commit()
 
