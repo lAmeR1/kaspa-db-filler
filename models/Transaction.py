@@ -31,11 +31,8 @@ class TransactionOutput(Base):
     script_public_key_address = Column(String)
     script_public_key_type = Column(String)
     accepting_block_hash = Column(String)
-    block_time = Column(BigInteger)  # "1663286480803"
 
 
-Index("block_timeoutputs_idx", TransactionOutput.block_time)
-Index("idx_addr_bt", TransactionOutput.script_public_key_address, TransactionOutput.block_time)
 Index("idx_txouts", TransactionOutput.transaction_id)
 Index("idx_txouts_addr", TransactionOutput.script_public_key_address)
 Index("tx_id_and_index", TransactionOutput.transaction_id, TransactionOutput.index)
@@ -52,7 +49,6 @@ class TransactionInput(Base):
 
     signature_script = Column(String)  # "41c903159094....281a1d26f70b0037d600554e01",
     sig_op_count = Column(Integer)
-    block_time = Column(BigInteger)  # "1663286480803"
 
 
 Index("idx_txin_prev", TransactionInput.previous_outpoint_hash)
