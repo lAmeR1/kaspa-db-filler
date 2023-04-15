@@ -123,8 +123,7 @@ class BlocksProcessor(object):
                                                              script_public_key_address=out["verboseData"][
                                                                  "scriptPublicKeyAddress"],
                                                              script_public_key_type=out["verboseData"][
-                                                                 "scriptPublicKeyType"],
-                                                             block_time=int(transaction["verboseData"]["blockTime"])))
+                                                                 "scriptPublicKeyType"]))
                 # Add transactions input
                 for index, tx_in in enumerate(transaction.get("inputs", [])):
                     self.txs_input.append(TransactionInput(transaction_id=transaction["verboseData"]["transactionId"],
@@ -134,8 +133,7 @@ class BlocksProcessor(object):
                                                            previous_outpoint_index=int(tx_in["previousOutpoint"].get(
                                                                "index", 0)),
                                                            signature_script=tx_in["signatureScript"],
-                                                           sig_op_count=tx_in["sigOpCount"],
-                                                           block_time=int(transaction["verboseData"]["blockTime"])))
+                                                           sig_op_count=tx_in["sigOpCount"]))
             else:
                 # If the block if already in the Queue, merge the block_hashes.
                 self.txs[tx_id].block_hash = list(set(self.txs[tx_id].block_hash + [block_hash]))
