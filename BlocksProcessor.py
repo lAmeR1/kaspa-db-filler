@@ -114,7 +114,7 @@ class BlocksProcessor(object):
                                               block_time=int(transaction["verboseData"]["blockTime"]))
 
                 # Add transactions output
-                for index, out in enumerate(transaction["outputs"]):
+                for index, out in enumerate(transaction.get("outputs", [])):
                     self.txs_output.append(TransactionOutput(transaction_id=transaction["verboseData"]["transactionId"],
                                                              index=index,
                                                              amount=out["amount"],
