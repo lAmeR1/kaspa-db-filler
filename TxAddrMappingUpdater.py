@@ -22,8 +22,8 @@ class TxAddrMappingUpdater(object):
 
     def precondition(self):
         with session_maker() as s:
-            self.id_counter_inputs = int(KeyValueStore.get("last_id_counter_inputs")) or 0
-            self.id_counter_outputs = int(KeyValueStore.get("last_id_counter_outputs")) or 0
+            self.id_counter_inputs = int(KeyValueStore.get("last_id_counter_inputs") or 0)
+            self.id_counter_outputs = int(KeyValueStore.get("last_id_counter_outputs") or 0)
 
     @staticmethod
     def minimum_timestamp():
@@ -43,12 +43,12 @@ class TxAddrMappingUpdater(object):
                 max_in = min(self.id_counter_inputs + LIMIT,
                              s.execute(
                                  f"""SELECT id FROM transactions_inputs ORDER by id DESC LIMIT 1""")
-                             .scalar())
+                             .scalar() or 0)
 
                 max_out = min(self.id_counter_outputs + LIMIT,
                               s.execute(
                                   f"""SELECT id FROM transactions_outputs ORDER by id DESC LIMIT 1""")
-                              .scalar())
+                              .scalar() or 0)
 
             try:
                 count_outputs, new_last_block_time_outputs = self.update_outputs(self.id_counter_outputs,
